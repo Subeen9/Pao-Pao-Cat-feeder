@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pao Pao Cat Feeder</title>
+</head>
+<body>
+    <h1 style=" text-align:center;">Pao Pao Cat Feeder</h1>
+
+   
+
+    <br>
+
+   
+    <div class="row">
+        <div class="col-md-6">
+            <table>
+                <thead>
+                    <th>Feeding History</th>
+                    
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.content }}</td>
+                            
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+
+
+         
+            <div style="text-align: center;">
+                <div>
+                    <h4>Schedule a Feed Time</h4>
+                    <form role="form" name="scheduleDatetime" method="post" action="/scheduleDatetime">
+                        <input type="date" name="scheduleDatetime">
+                        <input type="time" name="scheduleTime">
+                        <input type="submit" value="Schedule One Time Feed">
+                    </form>
+                </div>
+
+                <!-- Schedule Repeating Daily Feed Form -->
+                <br>
+                <div>
+                    <form role="form" name="scheduleRepeatingDatetime" method="post" action="/scheduleRepeatingDatetime">
+                        <input type="text" name="scheduleRepeatingDate" value="Daily" size="17" readonly>
+                        <input type="time" name="scheduleRepeatingTime">
+                        <input type="submit" value="Schedule Repeating Daily Feed">
+                    </form>
+                </div>
+                <br>
+            </div>
+        </div>
+      
+<form role="form" name="feedbuttonclick" method="post" action="/feedbuttonclick" style="text-align: center;">
+    <input type="hidden" name="currentDateTime" id="currentDateTime" value="">
+    <button type="submit">Feed Now</button>
+</form>
+<script>
+    document.forms["feedbuttonclick"].addEventListener("submit", function() {
+        document.getElementById("currentDateTime").value = new Date().toISOString();
+    });
+</script>
+
+
+    </div>
+</body>
+</html>
