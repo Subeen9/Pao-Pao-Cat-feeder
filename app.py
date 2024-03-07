@@ -1,19 +1,45 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///feeder.db'
 db = SQLAlchemy(app)
 
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.start()
+
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(200), nullable=False)
 
+def job(datetime_str):
+    print(f'Job executed at: {datetime_str}')
+    new_feed_entry = Task(content=datetime_str)
+
+    with app.app_context():
+        try:
+            db.session.add(new_feed_entry)
+            db.session.commit()
+        except Exception as e:
+            print(f'Error adding feed entry: {e}')
+
+# Define a function to get the upcoming schedule
+def get_upcoming_schedule():
+    upcoming_schedule = []
+    jobs = scheduler.get_jobs()
+
+    for job in jobs:
+        upcoming_schedule.append(job.next_run_time.strftime('%Y-%m-%d %H:%M:%S'))
+
+    return upcoming_schedule
+
 @app.route('/')
 def index():
     tasks = Task.query.all()
-    return render_template('index.html', tasks=tasks)
+    upcoming_schedule = get_upcoming_schedule()
+    return render_template('index.html', tasks=tasks, upcoming_schedule=upcoming_schedule)
 
 @app.route('/add', methods=['POST'])
 def add():
@@ -49,6 +75,19 @@ def feed_button_click():
         return redirect('/')
     except:
         return 'Error adding feed entry'
+
+@app.route('/scheduleDatetime', methods=['POST'])
+def schedule_datetime():
+    datetime_str = request.form['scheduledDateTime']
+
+    # Convert the string to a datetime object
+    scheduled_datetime = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
+
+    # Schedule a one-time job with a delay equal to the time until the scheduled time
+    delay = scheduled_datetime - datetime.now()
+    scheduler.add_job(job, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])
+
+    return redirect('/')
 
 if __name__ == '__main__':
     with app.app_context():

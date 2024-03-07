@@ -37,10 +37,11 @@
                 <div>
                     <h4>Schedule a Feed Time</h4>
                     <form role="form" name="scheduleDatetime" method="post" action="/scheduleDatetime">
-                        <input type="date" name="scheduleDatetime">
-                        <input type="time" name="scheduleTime">
+                        <input type="datetime-local" name="scheduledDateTime" required>
                         <input type="submit" value="Schedule One Time Feed">
                     </form>
+                    
+                    
                 </div>
 
                 <!-- Schedule Repeating Daily Feed Form -->
@@ -54,6 +55,23 @@
                 </div>
                 <br>
             </div>
+            <div>
+                <h4>Upcoming Schedule</h4>
+<table>
+    <thead>
+        <th>Date and Time</th>
+    </thead>
+    <tbody>
+        {% for scheduled_datetime in upcoming_schedule %}
+            <tr>
+                <td>{{ scheduled_datetime }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+            </div>
+            
         </div>
       
 <form role="form" name="feedbuttonclick" method="post" action="/feedbuttonclick" style="text-align: center;">
