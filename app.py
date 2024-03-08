@@ -89,6 +89,17 @@ def schedule_datetime():
 
     return redirect('/')
 
+@app.route('/clearDatabase', methods=['POST'])
+def clearDatabase():
+    try:
+        Task.query.delete()
+        db.session.commit()
+        return redirect('/')
+    except Exception as e:
+        return f'Error clearing database{e}'
+        
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

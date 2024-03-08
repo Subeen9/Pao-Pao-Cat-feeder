@@ -3,88 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <title>Pao Pao Cat Feeder</title>
 </head>
 <body>
-    <h1 style=" text-align:center;">Pao Pao Cat Feeder</h1>
 
-   
-
-    <br>
-
-   
-    <div class="row">
-        <div class="col-md-6">
-            <table>
-                <thead>
-                    <th>Feeding History</th>
-                    
-                </thead>
-                <tbody>
-                    {% for task in tasks %}
-                        <tr>
-                            <td>{{ task.content }}</td>
-                            
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            </div>
-
-
-         
-            <div style="text-align: center;">
-                <div>
-                    <h4>Schedule a Feed Time</h4>
-                    <form role="form" name="scheduleDatetime" method="post" action="/scheduleDatetime">
-                        <input type="datetime-local" name="scheduledDateTime" required>
-                        <input type="submit" value="Schedule One Time Feed">
-                    </form>
-                    
-                    
-                </div>
-
-                <!-- Schedule Repeating Daily Feed Form -->
-                <br>
-                <div>
-                    <form role="form" name="scheduleRepeatingDatetime" method="post" action="/scheduleRepeatingDatetime">
-                        <input type="text" name="scheduleRepeatingDate" value="Daily" size="17" readonly>
-                        <input type="time" name="scheduleRepeatingTime">
-                        <input type="submit" value="Schedule Repeating Daily Feed">
-                    </form>
-                </div>
-                <br>
-            </div>
-            <div>
-                <h4>Upcoming Schedule</h4>
-<table>
-    <thead>
-        <th>Date and Time</th>
-    </thead>
-    <tbody>
-        {% for scheduled_datetime in upcoming_schedule %}
-            <tr>
-                <td>{{ scheduled_datetime }}</td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-            </div>
-            
+    <nav class="navbar navbar-expand-lg navbar-light bg-light" style="background-color: #FFFFF7;">
+        <div class="container">
+            <a class="navbar-brand" href="#" style="color: #14452F;"><strong>Pao Cat Feeder</strong></a>
+            <ul class="navbar-nav mx-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Profile</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Logout</a>
+                </li>
+            </ul>
+            <button class="btn btn-primary" type="button" style="border-radius:39px; background-color: #14452F; font-size: 14px;">Get In Touch</button>
         </div>
-      
-<form role="form" name="feedbuttonclick" method="post" action="/feedbuttonclick" style="text-align: center;">
-    <input type="hidden" name="currentDateTime" id="currentDateTime" value="">
-    <button type="submit">Feed Now</button>
-</form>
-<script>
-    document.forms["feedbuttonclick"].addEventListener("submit", function() {
-        document.getElementById("currentDateTime").value = new Date().toISOString();
-    });
-</script>
+    </nav>
 
-
+    <div class="container mt-5">
+        <div class="row" style="color: #14452F;">
+            <div class="col-md-7">
+                <h1>Pao Pao </h1>
+                <h1>Cat Feeder</h1>
+                <h4>Ultimate Dream of Every Cat</h4>
+                <div class="container" style="margin-top: 20px; margin-right: 40px;">
+    
+                    <div class="row row-cols-4">
+                        <div class="col">
+                            <form role="form" name="feedbuttonclick" method="post" action="/feedbuttonclick" class="text-center">
+                                <input type="hidden" name="currentDateTime" id="currentDateTime" value="">
+                                <button type="submit" class="btn btn-primary" style="background-color: #14452F; color: white;">Feed Now</button>
+                            </form>
+                        </div>
+                        <div class="col">
+                            <form class="text-center ml-2" name="clearDatabase" method="post" action="/clearDatabase">
+                                <button type="submit" class="btn btn-danger">Clear Database</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="container" style="margin-top: 30px;">
+                    <div class="row row-cols-4">
+                        <div class="col">
+                            <table>
+                                <thead>
+                                    <th>Feeding History</th>
+                                </thead>
+                                <tbody>
+                                    {% for task in tasks %}
+                                        <tr>
+                                            <td>{{ task.content }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col">
+                            <table>
+                                <thead>
+                                    <th>Upcoming Schedule</th>
+                                </thead>
+                                <tbody>
+                                    {% for scheduled_datetime in upcoming_schedule %}
+                                        <tr>
+                                            <td>{{ scheduled_datetime }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <img src="{{ url_for('static', filename='Images/catImage.png') }}" alt="Cat Image" class="img-fluid w-100">
+            </div>
+        </div>
     </div>
+    
+    
+   <div style="text-align: center; margin-bottom: 13px; color: #14452F;">
+    <div>
+        <h4>Schedule a Feed Time</h4>
+        <form role="form" name="scheduleDatetime" method="post" action="/scheduleDatetime">
+            <input type="datetime-local" name="scheduledDateTime" required>
+            <input type="submit" value="Schedule One Time Feed">
+        </form>
+        
+        
+    </div>
+
+   
+    <br>
+    <div>
+        <form role="form" name="scheduleRepeatingDatetime" method="post" action="/scheduleRepeatingDatetime">
+            <input type="text" name="scheduleRepeatingDate" value="Daily" size="17" readonly>
+            <input type="time" name="scheduleRepeatingTime">
+            <input type="submit" value="Schedule Repeating Daily Feed">
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
+
 </body>
 </html>
