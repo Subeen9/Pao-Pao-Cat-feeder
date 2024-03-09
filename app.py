@@ -25,6 +25,18 @@ def job(datetime_str):
         except Exception as e:
             print(f'Error adding feed entry: {e}')
 
+def schedule_daily(datetime_str):
+    print(f'Daily scheule at:{datetime_str}')
+    new_feed_entry = Task(content=datetime_str)
+    
+    with app.app_context():
+        try:
+            db.session.add(new_feed_entry)
+            db.session.commit()
+        except Exception as e:
+            print(f'Error adding the date:{e}')
+    
+
 # Define a function to get the upcoming schedule
 def get_upcoming_schedule():
     upcoming_schedule = []
@@ -80,7 +92,6 @@ def feed_button_click():
 def schedule_datetime():
     datetime_str = request.form['scheduledDateTime']
 
-    # Convert the string to a datetime object
     scheduled_datetime = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
 
     # Schedule a one-time job with a delay equal to the time until the scheduled time
@@ -88,6 +99,18 @@ def schedule_datetime():
     scheduler.add_job(job, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])
 
     return redirect('/')
+
+@app.route('/scheduleRepeatingDatetime', methods=['POST'])
+def schedule_repeating_datetime():
+    datetime_str = request.form['scheduleRepeatingDate']
+    time_str = request.form['scheduleRepeatingTime']
+    datetime_str += f'T{time_str}'
+
+    # Schedule a daily recurring job at the specified time
+    scheduler.add_job(schedule_daily, trigger='cron', hour=int(time_str.split(':')[0]), minute=int(time_str.split(':')[1]), args=[datetime_str])
+
+    return redirect('/')
+    
 
 @app.route('/clearDatabase', methods=['POST'])
 def clearDatabase():
@@ -97,6 +120,18 @@ def clearDatabase():
         return redirect('/')
     except Exception as e:
         return f'Error clearing database{e}'
+
+@app.route('/delete_schedule', methods=['POST'])
+def delete_schedule():
+    scheduled_datetime = request.form['scheduled_datetime']
+
+
+    jobs = scheduler.get_jobs()
+    for job in jobs:
+        if job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') == scheduled_datetime:
+            scheduler.remove_job(job.id)
+
+    return redirect('/')
         
 
 
