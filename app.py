@@ -9,9 +9,11 @@ from flask_migrate import Migrate;
 from apscheduler.schedulers.background import BackgroundScheduler
 import RPi.GPIO as GPIO
 import time
+from signal import signal, SIGTERM, SIGHUP, pause
+from rpi_lcd import LCD
 
 
-
+lcd = LCD()
 app = Flask(__name__)
 app.config.from_object(Config)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///feeder.db'
@@ -26,18 +28,19 @@ scheduler = BackgroundScheduler(daemon=True)
 scheduler.start()
 
 motorPin = 17
-buttonPin = 18
+
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(motorPin, GPIO.OUT)
-GPIO.setup(buttonPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-motor_state = False
+
 
 def motor():
-    global motor_state
-    motor_state = not motor_state
-    GPIO.output(motorPin, GPIO.HIGH if motor_state else GPIO.LOW)
+    GPIO.output(motorPin, GPIO.HIGH)  # Turn on the motor
+    print("Motor turned on")
+    time.sleep(2)  # Run the motor for 2 seconds
+    GPIO.output(motorPin, GPIO.LOW)  # Turn off the motor
+    print("Motor turned off")
 
 
 class Task(db.Model):
@@ -104,6 +107,14 @@ def get_upcoming_schedule():
 
 @app.route('/home')
 def index():
+    last_feed_time = Task.query.order_by(Task.id.desc()).first()
+    if last_feed_time:
+        lcd.text("Feeding time:", 1)
+        lcd.text(last_feed_time.content, 2)
+    else:
+        lcd.text("PAO PAO Cat Feeder", 1)
+        lcd.text("Ready to feed!", 2)
+
     tasks = Task.query.all()
     upcoming_schedule = get_upcoming_schedule()
     return render_template('index.html', tasks=tasks, upcoming_schedule=upcoming_schedule)
@@ -167,16 +178,14 @@ def signup():
 def feed_button_click():
     current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     new_feed_entry = Task(content=current_date_time)
-
     try:
-        motor()
-        time.sleep(0.10)
-        motor()
-        db.session.add(new_feed_entry)
-        db.session.commit()
-        return redirect('/home')
-    except:
-        return 'Error adding feed entry'
+        motor()  # Run the motor
+        time.sleep(2)  # Add a delay after running the motor to allow it to complete its operation
+        GPIO.cleanup()  # Clean up GPIO pins before exiting
+
+    except KeyboardInterrupt:
+        print("\nProgram terminated by user")
+        GPIO.cleanup()  # Clean up GPIO pins upon KeyboardInterrupt
 
 # New authentication routes
 @app.route('/', methods=['GET', 'POST'])
@@ -195,11 +204,6 @@ def login():
 
     return render_template('login.html')
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
 
 
 @app.route('/scheduleDatetime', methods=['POST'])
@@ -246,6 +250,10 @@ def delete_schedule():
             scheduler.remove_job(job.id)
 
     return redirect('/home')
+
+@app.route('/logout', methods=['POST'])
+def logOut():
+    return redirect(url_for('login'))
         
 
 
