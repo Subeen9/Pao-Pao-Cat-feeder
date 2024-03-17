@@ -1,5 +1,6 @@
 
 from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta
@@ -11,7 +12,6 @@ import RPi.GPIO as GPIO
 import time
 from signal import signal, SIGTERM, SIGHUP, pause
 from rpi_lcd import LCD
-
 
 lcd = LCD()
 app = Flask(__name__)
@@ -27,15 +27,19 @@ login_manager.login_view = 'login'
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.start()
 
-motorPin = 17
-
-
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(motorPin, GPIO.OUT)
+motorPin = 17
+motor_running = False 
 
+class Task(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.String(200), nullable=False)
 
 
 def motor():
+    GPIO.setmode(GPIO.BCM)
+    motorPin = 17
+    GPIO.setup(motorPin, GPIO.OUT)
     GPIO.output(motorPin, GPIO.HIGH)  # Turn on the motor
     print("Motor turned on")
     time.sleep(2)  # Run the motor for 2 seconds
@@ -43,9 +47,7 @@ def motor():
     print("Motor turned off")
 
 
-class Task(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(200), nullable=False)
+
 
 class User(UserMixin,db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -176,16 +178,28 @@ def signup():
 
 @app.route('/feedbuttonclick', methods=['POST'])
 def feed_button_click():
-    current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    new_feed_entry = Task(content=current_date_time)
-    try:
-        motor()  # Run the motor
-        time.sleep(2)  # Add a delay after running the motor to allow it to complete its operation
-        GPIO.cleanup()  # Clean up GPIO pins before exiting
+    global motor_running  # Access the global variable
 
-    except KeyboardInterrupt:
-        print("\nProgram terminated by user")
-        GPIO.cleanup()  # Clean up GPIO pins upon KeyboardInterrupt
+    if not motor_running:  # Check if the motor is not already running
+        current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        new_feed_entry = Task(content=current_date_time)
+        
+        try:
+            motor()  # Run the motor
+            db.session.add(new_feed_entry)  # Add the feed entry to the database
+            db.session.commit()  # Commit the changes
+            time.sleep(1) 
+            GPIO.cleanup()  # Clean up GPIO pins
+
+        except KeyboardInterrupt:
+            print("\nProgram terminated by user")
+            GPIO.cleanup()  # Clean up GPIO pins
+
+    return redirect('/home')
+
+
+
+
 
 # New authentication routes
 @app.route('/', methods=['GET', 'POST'])
