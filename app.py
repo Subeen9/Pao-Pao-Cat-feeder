@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -12,7 +11,15 @@ import RPi.GPIO as GPIO
 import time
 from signal import signal, SIGTERM, SIGHUP, pause
 from rpi_lcd import LCD
+import os
+from dotenv import load_dotenv
+import os.path
+import ssl
+from email.message import EmailMessage
+import smtplib
 
+
+load_dotenv()
 lcd = LCD()
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -22,7 +29,6 @@ db = SQLAlchemy(app)
 migrate = Migrate(app,db)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
-
 
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.start()
@@ -45,6 +51,18 @@ def motor():
     time.sleep(2)  # Run the motor for 2 seconds
     GPIO.output(motorPin, GPIO.LOW)  # Turn off the motor
     print("Motor turned off")
+    
+def run_motor_and_add_entry(datetime_str):
+    try:
+        motor()  # Run the motor
+        new_feed_entry = Task(content=datetime_str)
+        db.session.add(new_feed_entry)  # Add the feed entry to the database
+        db.session.commit()  # Commit the changes
+        time.sleep(1) 
+        GPIO.cleanup()  # Clean up GPIO pins
+    except KeyboardInterrupt:
+        print("\nProgram terminated by user")
+        GPIO.cleanup()  # Clean up GPIO pins
 
 
 
@@ -104,6 +122,30 @@ def get_upcoming_schedule():
         upcoming_schedule.append(job.next_run_time.strftime('%Y-%m-%d %H:%M:%S'))
 
     return upcoming_schedule
+
+# Sending Emails with Smtp
+def sendEmail(feedTime):
+    print("Sending Email")
+    try:
+        emailSender = 'emailnasa21@gmail.com'
+        emailReciever = 'subinbista222@gmail.com'
+        emailPasssword = os.environ.get("Password")
+        message = EmailMessage()
+        body = "Your cat feed time was " + feedTime
+        Subject = "Cat Feed time"
+        message['From'] = emailSender
+        message['To'] = emailReciever
+        message['Subject'] = Subject
+        message.set_content(body)
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
+            smtp.login(emailSender, emailPasssword)
+            smtp.send_message(message)
+            
+    except Exception as error:
+        print(f"An error occurred: {error}")
+
+
 
 
 
@@ -183,7 +225,7 @@ def feed_button_click():
     if not motor_running:  # Check if the motor is not already running
         current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_feed_entry = Task(content=current_date_time)
-        
+        sendEmail(current_date_time)
         try:
             motor()  # Run the motor
             db.session.add(new_feed_entry)  # Add the feed entry to the database
@@ -195,10 +237,7 @@ def feed_button_click():
             print("\nProgram terminated by user")
             GPIO.cleanup()  # Clean up GPIO pins
 
-    return redirect('/home')
-
-
-
+        return redirect('/home')
 
 
 # New authentication routes
@@ -228,6 +267,7 @@ def schedule_datetime():
 
     # Schedule a one-time job with a delay equal to the time until the scheduled time
     delay = scheduled_datetime - datetime.now()
+    # scheduler.add_job(run_motor_and_add_entry, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])
     scheduler.add_job(job, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])
 
     return redirect('/home')
@@ -274,4 +314,4 @@ def logOut():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, port=5001)
+    app.run(host="localhost", port=5001)
