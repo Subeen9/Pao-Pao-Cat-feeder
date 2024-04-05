@@ -91,19 +91,22 @@ def load_user(user_id):
 
 # Existing routes
 def job(datetime_str):
-    print(f'Job executed at: {datetime_str}')
+    print(f'Feed executed at: {datetime_str}')
     new_feed_entry = Task(content=datetime_str)
+    sendEmail(datetime_str)
 
     with app.app_context():
         try:
             db.session.add(new_feed_entry)
             db.session.commit()
+            print("Feeding cats")
         except Exception as e:
             print(f'Error adding feed entry: {e}')
 
 def schedule_daily(datetime_str):
     print(f'Daily scheule at:{datetime_str}')
     new_feed_entry = Task(content=datetime_str)
+    sendEmail(datetime_str)
     
     with app.app_context():
         try:
@@ -131,7 +134,7 @@ def sendEmail(feedTime):
         emailReciever = 'subinbista222@gmail.com'
         emailPasssword = os.environ.get("Password")
         message = EmailMessage()
-        body = "Your cat feed time was " + feedTime
+        body = "Hey user, your cat feed time was " + feedTime
         Subject = "Cat Feed time"
         message['From'] = emailSender
         message['To'] = emailReciever
@@ -144,10 +147,6 @@ def sendEmail(feedTime):
             
     except Exception as error:
         print(f"An error occurred: {error}")
-
-
-
-
 
 @app.route('/home')
 def index():
@@ -226,6 +225,8 @@ def feed_button_click():
         current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_feed_entry = Task(content=current_date_time)
         sendEmail(current_date_time)
+        # db.session.add(new_feed_entry)
+        # db.session.commit()
         try:
             motor()  # Run the motor
             db.session.add(new_feed_entry)  # Add the feed entry to the database
@@ -247,7 +248,7 @@ def login():
         username = request.form['username']
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
-
+        
         if user and check_password_hash(user.password, password):
             login_user(user)
             flash('Login successful!', 'success')
@@ -261,25 +262,39 @@ def login():
 
 @app.route('/scheduleDatetime', methods=['POST'])
 def schedule_datetime():
-    datetime_str = request.form['scheduledDateTime']
-
-    scheduled_datetime = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
-
-    # Schedule a one-time job with a delay equal to the time until the scheduled time
-    delay = scheduled_datetime - datetime.now()
-    # scheduler.add_job(run_motor_and_add_entry, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])
-    scheduler.add_job(job, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])
-
+    global motor_running
+    if not motor_running: 
+        datetime_str = request.form['scheduledDateTime']
+        scheduled_datetime = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
+        delay = scheduled_datetime - datetime.now()
+        try:
+             motor()
+             time.sleep(1) 
+             GPIO.cleanup()
+             scheduler.add_job(job, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])
+        except KeyboardInterrupt:
+            print("\nProgram terminated by user")
+            GPIO.cleanup()  # Clean up GPIO pins
+            
     return redirect('/home')
 
 @app.route('/scheduleRepeatingDatetime', methods=['POST'])
 def schedule_repeating_datetime():
-    datetime_str = request.form['scheduleRepeatingDate']
-    time_str = request.form['scheduleRepeatingTime']
-    datetime_str += f'T{time_str}'
-
-    # Schedule a daily recurring job at the specified time
-    scheduler.add_job(schedule_daily, trigger='cron', hour=int(time_str.split(':')[0]), minute=int(time_str.split(':')[1]), args=[datetime_str])
+    global motor_running
+    if not motor_running: 
+        datetime_str = request.form['scheduleRepeatingDate']
+        time_str = request.form['scheduleRepeatingTime']
+        datetime_str += f'T{time_str}'
+    
+        try:
+            motor()
+            time.sleep(1) 
+            GPIO.cleanup()
+            # Schedule a daily recurring job at the specified time
+            scheduler.add_job(schedule_daily, trigger='cron', hour=int(time_str.split(':')[0]), minute=int(time_str.split(':')[1]), args=[datetime_str])
+        except KeyboardInterrupt:
+            print("\nProgram terminated by user")
+            GPIO.cleanup()  # Clean up GPIO pins
 
     return redirect('/home')
     
