@@ -17,6 +17,9 @@ import os.path
 import ssl
 from email.message import EmailMessage
 import smtplib
+import speech_recognition as sr
+from flask import session
+
 
 
 load_dotenv()
@@ -32,6 +35,7 @@ login_manager.login_view = 'login'
 
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.start()
+recognizer = sr.Recognizer()
 
 GPIO.setmode(GPIO.BCM)
 motorPin = 17
@@ -85,6 +89,7 @@ with app.app_context():
         db.session.add(admin_user)
         db.session.commit()
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -131,7 +136,7 @@ def sendEmail(feedTime):
     print("Sending Email")
     try:
         emailSender = 'emailnasa21@gmail.com'
-        emailReciever = 'subinbista222@gmail.com'
+        emailReciever = session.get('user_email')
         emailPasssword = os.environ.get("Password")
         message = EmailMessage()
         body = "Hey user, your cat feed time was " + feedTime
@@ -224,11 +229,11 @@ def feed_button_click():
     if not motor_running:  # Check if the motor is not already running
         current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_feed_entry = Task(content=current_date_time)
-        sendEmail(current_date_time)
-        # db.session.add(new_feed_entry)
-        # db.session.commit()
+       
+        
         try:
             motor()  # Run the motor
+            sendEmail(current_date_time)
             db.session.add(new_feed_entry)  # Add the feed entry to the database
             db.session.commit()  # Commit the changes
             time.sleep(1) 
@@ -238,7 +243,7 @@ def feed_button_click():
             print("\nProgram terminated by user")
             GPIO.cleanup()  # Clean up GPIO pins
 
-        return redirect('/home')
+    return redirect('/home')
 
 
 # New authentication routes
@@ -251,6 +256,7 @@ def login():
         
         if user and check_password_hash(user.password, password):
             login_user(user)
+            session['user_email'] = user.email
             flash('Login successful!', 'success')
             return redirect(url_for('index'))
         else:
@@ -319,6 +325,35 @@ def delete_schedule():
             scheduler.remove_job(job.id)
 
     return redirect('/home')
+
+@app.route('/speech_input', methods=['POST'])
+def handle_speech_input():
+    try:
+        # Record audio from the user
+        with sr.Microphone() as source:
+            print("Say something...")
+            audio = recognizer.listen(source)
+        
+        # Use Google's speech recognition API to convert audio to text
+        command = recognizer.recognize_google(audio)
+        print("Command:", command)
+        
+        if "dispense the food" in command:
+            print("Dispensing food...")
+            flash("Dispensing food...", "success")
+            feed_button_click()  # Call the function to dispense food
+        else:
+            flash("Invalid command. Please try again.", "error")
+        
+        return redirect(url_for('index'))
+    
+    except sr.UnknownValueError:
+        flash("Sorry, I couldn't understand what you said. Please try again.", "error")
+        return redirect(url_for('index'))
+    except sr.RequestError as e:
+        flash("Could not request results from Google Speech Recognition service; {0}".format(e), "error")
+        return redirect(url_for('index'))
+    
 
 @app.route('/logout', methods=['POST'])
 def logOut():
