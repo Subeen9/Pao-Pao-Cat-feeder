@@ -94,7 +94,6 @@ with app.app_context():
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Existing routes
 def job(datetime_str):
     print(f'Scheduled job executed at: {datetime_str}')
     global motor_running
@@ -136,7 +135,6 @@ def schedule_daily(datetime_str):
         except KeyboardInterrupt:
             print("\nProgram terminated by user")
             GPIO.cleanup()
-
     
 
 # Define a function to get the upcoming schedule
@@ -255,8 +253,8 @@ def feed_button_click():
     if not motor_running:  # Check if the motor is not already running
         current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_feed_entry = Task(content=current_date_time)
-        
-        
+        db.session.add(new_feed_entry)  # Add the feed entry to the database
+        db.session.commit()
         try:
             motor()  # Run the motor
             speak(current_date_time)
