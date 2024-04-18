@@ -19,8 +19,8 @@ from email.message import EmailMessage
 import smtplib
 import speech_recognition as sr
 from flask import session
-
-
+from gtts import gTTS
+# for the voice feedback to work add this library through : sudo apt install bluetooth pi-bluetooth bluez blueman
 
 load_dotenv()
 lcd = LCD()
@@ -96,29 +96,47 @@ def load_user(user_id):
 
 # Existing routes
 def job(datetime_str):
-    print(f'Feed executed at: {datetime_str}')
-    new_feed_entry = Task(content=datetime_str)
-    sendEmail(datetime_str)
-
-    with app.app_context():
+    print(f'Scheduled job executed at: {datetime_str}')
+    global motor_running
+    if not motor_running:
         try:
-            db.session.add(new_feed_entry)
-            db.session.commit()
-            print("Feeding cats")
-        except Exception as e:
-            print(f'Error adding feed entry: {e}')
+            motor()  
+            time.sleep(1)
+            GPIO.cleanup()
+            new_feed_entry = Task(content=datetime_str)
+            sendEmail(datetime_str)
+            with app.app_context():
+                try:
+                    db.session.add(new_feed_entry)
+                    db.session.commit()
+                    print("Feeding cats")
+                except Exception as e:
+                    print(f'Error adding feed entry: {e}')
+        except KeyboardInterrupt:
+            print("\nProgram terminated by user")
+            GPIO.cleanup()
 
 def schedule_daily(datetime_str):
-    print(f'Daily scheule at:{datetime_str}')
-    new_feed_entry = Task(content=datetime_str)
-    sendEmail(datetime_str)
-    
-    with app.app_context():
+    print(f'Daily schedule at: {datetime_str}')
+    global motor_running
+    if not motor_running:
         try:
-            db.session.add(new_feed_entry)
-            db.session.commit()
-        except Exception as e:
-            print(f'Error adding the date:{e}')
+            motor()  # Assuming this function is defined elsewhere
+            time.sleep(1)
+            GPIO.cleanup()
+            new_feed_entry = Task(content=datetime_str)
+            sendEmail(datetime_str)
+            with app.app_context():
+                try:
+                    db.session.add(new_feed_entry)
+                    db.session.commit()
+                    print("Feeding cats")
+                except Exception as e:
+                    print(f'Error adding the date: {e}')
+        except KeyboardInterrupt:
+            print("\nProgram terminated by user")
+            GPIO.cleanup()
+
     
 
 # Define a function to get the upcoming schedule
@@ -137,7 +155,7 @@ def sendEmail(feedTime):
     try:
         emailSender = 'emailnasa21@gmail.com'
         emailReciever = session.get('user_email')
-        emailPasssword = os.environ.get("Password")
+        emailPasssword = "wzms ofvq xmxg mjvr"
         message = EmailMessage()
         body = "Hey user, your cat feed time was " + feedTime
         Subject = "Cat Feed time"
@@ -222,17 +240,27 @@ def signup():
 
     return render_template('signup.html')
 
+def speak(feed_time):
+    text = f"The food was dispensed at {feed_time}"
+    tts = gTTS(text=text, lang='en')
+    tts.save("output.mp3")
+    os.system("mpg321 output.mp3")
+    print("pao pao ")
+
+
 @app.route('/feedbuttonclick', methods=['POST'])
 def feed_button_click():
     global motor_running  # Access the global variable
-
+        
     if not motor_running:  # Check if the motor is not already running
         current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_feed_entry = Task(content=current_date_time)
-       
+        
         
         try:
             motor()  # Run the motor
+            speak(current_date_time)
+            
             sendEmail(current_date_time)
             db.session.add(new_feed_entry)  # Add the feed entry to the database
             db.session.commit()  # Commit the changes
@@ -268,41 +296,21 @@ def login():
 
 @app.route('/scheduleDatetime', methods=['POST'])
 def schedule_datetime():
-    global motor_running
-    if not motor_running: 
-        datetime_str = request.form['scheduledDateTime']
-        scheduled_datetime = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
-        delay = scheduled_datetime - datetime.now()
-        try:
-             motor()
-             time.sleep(1) 
-             GPIO.cleanup()
-             scheduler.add_job(job, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])
-        except KeyboardInterrupt:
-            print("\nProgram terminated by user")
-            GPIO.cleanup()  # Clean up GPIO pins
-            
+    datetime_str = request.form['scheduledDateTime']
+    scheduled_datetime = datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
+    delay = scheduled_datetime - datetime.now()
+    scheduler.add_job(job, trigger='date', run_date=datetime.now() + delay, args=[datetime_str])      
     return redirect('/home')
 
 @app.route('/scheduleRepeatingDatetime', methods=['POST'])
 def schedule_repeating_datetime():
-    global motor_running
-    if not motor_running: 
-        datetime_str = request.form['scheduleRepeatingDate']
-        time_str = request.form['scheduleRepeatingTime']
-        datetime_str += f'T{time_str}'
-    
-        try:
-            motor()
-            time.sleep(1) 
-            GPIO.cleanup()
-            # Schedule a daily recurring job at the specified time
-            scheduler.add_job(schedule_daily, trigger='cron', hour=int(time_str.split(':')[0]), minute=int(time_str.split(':')[1]), args=[datetime_str])
-        except KeyboardInterrupt:
-            print("\nProgram terminated by user")
-            GPIO.cleanup()  # Clean up GPIO pins
+    datetime_str = request.form['scheduleRepeatingDate']
+    time_str = request.form['scheduleRepeatingTime']
+    datetime_str += f'T{time_str}'
+    scheduler.add_job(schedule_daily, trigger='cron', hour=int(time_str.split(':')[0]), minute=int(time_str.split(':')[1]), args=[datetime_str])
 
     return redirect('/home')
+
     
 
 @app.route('/clearDatabase', methods=['POST'])
