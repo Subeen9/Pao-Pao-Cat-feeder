@@ -19,8 +19,8 @@ from email.message import EmailMessage
 import smtplib
 import speech_recognition as sr
 from flask import session
-
-
+from gtts import gTTS
+# for the voice feedback to work add this library through : sudo apt install bluetooth pi-bluetooth bluez blueman
 
 load_dotenv()
 lcd = LCD()
@@ -153,7 +153,7 @@ def sendEmail(feedTime):
     try:
         emailSender = 'emailnasa21@gmail.com'
         emailReciever = session.get('user_email')
-        emailPasssword = os.environ.get("Password")
+        emailPasssword = "wzms ofvq xmxg mjvr"
         message = EmailMessage()
         body = "Hey user, your cat feed time was " + feedTime
         Subject = "Cat Feed time"
@@ -238,10 +238,18 @@ def signup():
 
     return render_template('signup.html')
 
+def speak(feed_time):
+    text = f"The food was dispensed at {feed_time}"
+    tts = gTTS(text=text, lang='en')
+    tts.save("output.mp3")
+    os.system("mpg321 output.mp3")
+    print("pao pao ")
+
+
 @app.route('/feedbuttonclick', methods=['POST'])
 def feed_button_click():
     global motor_running  # Access the global variable
-
+        
     if not motor_running:  # Check if the motor is not already running
         current_date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         new_feed_entry = Task(content=current_date_time)
@@ -249,6 +257,8 @@ def feed_button_click():
         db.session.commit()
         try:
             motor()  # Run the motor
+            speak(current_date_time)
+            
             sendEmail(current_date_time)
             db.session.add(new_feed_entry)  # Add the feed entry to the database
             db.session.commit()  # Commit the changes
@@ -298,6 +308,7 @@ def schedule_repeating_datetime():
     scheduler.add_job(schedule_daily, trigger='cron', hour=int(time_str.split(':')[0]), minute=int(time_str.split(':')[1]), args=[datetime_str])
 
     return redirect('/home')
+
     
 
 @app.route('/clearDatabase', methods=['POST'])
