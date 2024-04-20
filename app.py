@@ -52,7 +52,7 @@ def motor():
     GPIO.setup(motorPin, GPIO.OUT)
     GPIO.output(motorPin, GPIO.HIGH)  # Turn on the motor
     print("Motor turned on")
-    time.sleep(2)  # Run the motor for 2 seconds
+    time.sleep(1)  # Run the motor for 1 seconds
     GPIO.output(motorPin, GPIO.LOW)  # Turn off the motor
     print("Motor turned off")
     
@@ -135,7 +135,7 @@ def schedule_daily(datetime_str):
         except KeyboardInterrupt:
             print("\nProgram terminated by user")
             GPIO.cleanup()
-    
+
 
 # Define a function to get the upcoming schedule
 def get_upcoming_schedule():
@@ -173,7 +173,7 @@ def sendEmail(feedTime):
 def index():
     last_feed_time = Task.query.order_by(Task.id.desc()).first()
     if last_feed_time:
-        lcd.text("Feeding time:", 1)
+        lcd.text("Last Feed Time:", 1)
         lcd.text(last_feed_time.content, 2)
     else:
         lcd.text("PAO PAO Cat Feeder", 1)
@@ -183,8 +183,6 @@ def index():
     upcoming_schedule = get_upcoming_schedule()
     return render_template('index.html', tasks=tasks, upcoming_schedule=upcoming_schedule)
 
-
-    
 
 @app.route('/add', methods=['POST'])
 def add():
@@ -239,11 +237,12 @@ def signup():
     return render_template('signup.html')
 
 def speak(feed_time):
-    text = f"The food was dispensed at {feed_time}"
+    text = f"{feed_time}"
     tts = gTTS(text=text, lang='en')
     tts.save("output.mp3")
     os.system("mpg321 output.mp3")
     print("pao pao ")
+    
 
 
 @app.route('/feedbuttonclick', methods=['POST'])
@@ -257,11 +256,13 @@ def feed_button_click():
         db.session.commit()
         try:
             motor()  # Run the motor
-            speak(current_date_time)
-            
+            time.sleep(1) 
+            GPIO.cleanup()  # Clean up GPIO pins
+            speak(f"You are dispensing the food at: {current_date_time}")
             sendEmail(current_date_time)
             db.session.add(new_feed_entry)  # Add the feed entry to the database
             db.session.commit()  # Commit the changes
+            
             time.sleep(1) 
             GPIO.cleanup()  # Clean up GPIO pins
 
@@ -348,6 +349,33 @@ def handle_speech_input():
             print("Dispensing food...")
             flash("Dispensing food...", "success")
             feed_button_click()  # Call the function to dispense food
+
+        elif "last fed time" in command:
+            print("Loading last fed...")
+            flash("Loading last fed time...", "success")
+            
+            # Get the last fed time from the database
+            last_feed_time = Task.query.order_by(Task.id.desc()).first()
+            if last_feed_time:
+                # Speak out the last fed time
+                speak(f"Your Last fed time was: {last_feed_time.content}")
+                flash(f"Last fed time: {last_feed_time.content}", "success")
+            else:
+                flash("No previous feeding record found.", "error")
+        
+        elif "upcoming schedule" in command:
+            print("Fetching upcoming schedule...")
+            flash("Fetching upcoming schedule...", "success")
+            
+            # Get the upcoming schedule
+            upcoming_schedule = get_upcoming_schedule()
+            if upcoming_schedule:
+                # Speak out the upcoming schedule
+                speak(f"Your upcoming schedule is on {upcoming_schedule[0]}.")
+                flash(f"Upcoming schedule: {upcoming_schedule[0]}", "success")
+            else:
+                flash("No upcoming schedule found.", "error")
+            
         else:
             flash("Invalid command. Please try again.", "error")
         
